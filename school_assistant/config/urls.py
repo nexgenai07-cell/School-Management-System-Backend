@@ -1,21 +1,13 @@
 """
 Project-level URL configuration.
 
-This file is meant to stay almost frozen after initial setup -- once each
-app's own urls.py exists (built later, alongside views/serializers), add
-ONE line per app here, e.g.:
-
-    path("api/", include("accounts.urls")),
-    path("api/", include("academics.urls")),
-
-Keeping this file untouched day-to-day is what lets two developers work
-on different role-scoped endpoints in parallel without merge conflicts --
-each app's own urls/admin.py, urls/others.py, etc. is where the real,
-frequent route additions happen.
+This file should only need one new line per app, ever -- the actual,
+frequent route additions happen inside each app's own
+urls/admin.py / teacher.py / student.py / parent.py.
 """
 
 from django.contrib import admin
-from django.urls import path
+from django.urls import path, include
 from rest_framework import permissions
 from drf_yasg.views import get_schema_view
 from drf_yasg import openapi
@@ -24,26 +16,26 @@ schema_view = get_schema_view(
     openapi.Info(
         title="School ERP API",
         default_version="v1",
-        description="REST API for the Smart School ERP system (Admin / Teacher / Student / Parent).",
+        description="REST API for the Smart School ERP (Admin / Teacher / Student / Parent)",
     ),
     public=True,
     permission_classes=(permissions.AllowAny,),
 )
 
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    # Renamed from /admin/ to /admin-site/ so it doesn't clash with our
+    # own /api/admin/... route prefix used for the Admin role's endpoints.
+    path("admin-site/", admin.site.urls),
 
-    # Swagger UI -- interactive API testing straight from the browser.
+    # Swagger / ReDoc -- visit /swagger/ for interactive API testing.
     path("swagger/", schema_view.with_ui("swagger", cache_timeout=0), name="schema-swagger-ui"),
-    # ReDoc -- clean, read-only API reference (nice for sharing with the team).
     path("redoc/", schema_view.with_ui("redoc", cache_timeout=0), name="schema-redoc"),
 
-    # TODO: add one line per app once its own urls.py exists, e.g.:
-    # path("api/", include("accounts.urls")),
-    # path("api/", include("academics.urls")),
-    # path("api/", include("attendance.urls")),
-    # path("api/", include("finance.urls")),
-    # path("api/", include("chat.urls")),
-    # path("api/", include("communication.urls")),
-    # path("api/", include("administration.urls")),
+    path("api/", include("accounts.urls")),
+    path("api/", include("academics.urls")),
+    path("api/", include("attendance.urls")),
+    path("api/", include("finance.urls")),
+    path("api/", include("communication.urls")),
+    path("api/", include("administration.urls")),
+    # path("api/", include("chat.urls")),  # TODO: uncomment once chat/urls.py + consumers.py are built
 ]
