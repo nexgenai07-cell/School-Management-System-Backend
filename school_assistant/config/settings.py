@@ -7,11 +7,22 @@ python-decouple -- see `.env.example` for the variables you need to set.
 
 from pathlib import Path
 from datetime import timedelta
-from decouple import config
+from decouple import AutoConfig
 
 BASE_DIR = Path(__file__).resolve().parent.parent
+config = AutoConfig(search_path=BASE_DIR)
 
 # ── SECURITY ──────────────────────────────────────────────────────────────
+import cloudinary
+from decouple import config
+
+cloudinary.config(
+    cloud_name=config("CLOUDINARY_CLOUD_NAME"),
+    api_key=config("CLOUDINARY_API_KEY"),
+    api_secret=config("CLOUDINARY_API_SECRET"),
+    secure=True,
+)
+
 SECRET_KEY = config("DJANGO_SECRET_KEY")
 DEBUG = config("DEBUG", default=False, cast=bool)
 ALLOWED_HOSTS = config("ALLOWED_HOSTS", default="localhost,127.0.0.1").split(",")

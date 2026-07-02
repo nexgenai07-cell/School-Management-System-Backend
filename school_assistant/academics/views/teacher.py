@@ -22,7 +22,9 @@ class TeacherGradeViewSet(viewsets.ModelViewSet):
         return Grade.objects.filter(teacher__user=self.request.user)
 
     def perform_create(self, serializer):
-        teacher_profile = self.request.user.teacher_profile
+        teacher_profile = getattr(self.request.user, "teacher_profile", None)
+        if not teacher_profile:
+            raise PermissionDenied("Teacher profile is not available.")
 
         # Teacher scoping: teacher can only create grades for subjects assigned to them.
         student = serializer.validated_data.get("student")
@@ -52,7 +54,9 @@ class TeacherAssignmentViewSet(viewsets.ModelViewSet):
         return Assignment.objects.filter(teacher__user=self.request.user)
 
     def perform_create(self, serializer):
-        teacher_profile = self.request.user.teacher_profile
+        teacher_profile = getattr(self.request.user, "teacher_profile", None)
+        if not teacher_profile:
+            raise PermissionDenied("Teacher profile is not available.")
 
         # Teacher scoping: teacher can only create assignments for subjects
         # assigned to them.

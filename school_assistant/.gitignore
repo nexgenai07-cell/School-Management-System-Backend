@@ -1,17 +1,6 @@
-# Environments
+# Ignore environment files
 .env
-*.env
-.env.local
-.env.production
-.env.vercel
-school_assistant/.env.local
-school_assistant/.env.production
-school_assistant/.env.vercel
-
-# Virtual environments
-venv/
-env/
-.venv/
+*/.env
 
 # Python cache
 __pycache__/

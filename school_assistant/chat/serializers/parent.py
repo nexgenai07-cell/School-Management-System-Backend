@@ -10,6 +10,10 @@ class ParentChatSessionSerializer(serializers.ModelSerializer):
 
 
 class ParentChatMessageSerializer(serializers.ModelSerializer):
+    # Accept selected child for scoping AI context.
+    # This is NOT stored on ChatMessage; it updates ChatSession.active_child in the view.
+    child_id = serializers.IntegerField(required=False, write_only=True, allow_null=True)
+
     class Meta:
         model = ChatMessage
-        fields = ["id", "role", "content", "created_at"]
+        fields = ["id", "role", "content", "created_at", "child_id"]

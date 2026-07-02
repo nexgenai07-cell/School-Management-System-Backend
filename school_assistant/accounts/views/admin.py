@@ -153,6 +153,12 @@ class ApprovalActionView(APIView):
                 student_profile = StudentProfile.objects.get(user=user)
                 student_profile.roll_number = roll_number
                 student_profile.save()
+
+            # Teacher approval: ensure a TeacherProfile exists.
+            # Without this, teacher-scoped endpoints will crash with
+            # RelatedObjectDoesNotExist (User has no teacher_profile).
+            if user.role.role_name == "Teacher":
+                TeacherProfile.objects.get_or_create(user=user)
         else:
             user.status = "Rejected"
             user.save()

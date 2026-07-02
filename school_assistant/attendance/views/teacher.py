@@ -18,7 +18,10 @@ class TeacherAttendanceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # Teachers can only see/update the attendance records they have marked.
-        return Attendance.objects.filter(marked_by=self.request.user.teacher_profile)
+        teacher_profile = getattr(self.request.user, "teacher_profile", None)
+        if not teacher_profile:
+            return Attendance.objects.none()
+        return Attendance.objects.filter(marked_by=teacher_profile)
 
 
 
@@ -37,7 +40,9 @@ class TeacherAttendanceViewSet(viewsets.ModelViewSet):
 
 
     def perform_create(self, serializer):
-        teacher_profile = self.request.user.teacher_profile
+        teacher_profile = getattr(self.request.user, "teacher_profile", None)
+        if not teacher_profile:
+            raise PermissionDenied("Teacher profile is not available.")
 
         # Teacher scoping: teacher can only mark attendance for students in class-sections they teach.
         student = serializer.validated_data.get("student")
@@ -76,10 +81,15 @@ class TeacherBehaviorLogViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         # restrict to logs filed by this teacher
-        return BehaviorLog.objects.filter(reported_by=self.request.user.teacher_profile)
+        teacher_profile = getattr(self.request.user, "teacher_profile", None)
+        if not teacher_profile:
+            return BehaviorLog.objects.none()
+        return BehaviorLog.objects.filter(reported_by=teacher_profile)
 
     def perform_create(self, serializer):
-        teacher_profile = self.request.user.teacher_profile
+        teacher_profile = getattr(self.request.user, "teacher_profile", None)
+        if not teacher_profile:
+            raise PermissionDenied("Teacher profile is not available.")
 
         student = serializer.validated_data.get("student")
         if not student:

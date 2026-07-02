@@ -12,6 +12,8 @@ whitenoise>=6.0.0
 redis==5.0.4
 python-decouple==3.8
 stripe==15.2.1
+whitenoise==6.7.0
+cloudinary==1.40.0
 
 # Add ONE of these once the AI chatbot's LLM integration is actually built:
 # openai==1.30.0

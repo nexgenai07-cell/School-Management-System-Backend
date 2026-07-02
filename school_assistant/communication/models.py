@@ -51,3 +51,28 @@ class MediaCampaignLog(models.Model):
         "accounts.User", on_delete=models.SET_NULL, null=True, related_name="campaigns_created"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+class Message(models.Model):
+    """
+    Teacher aur Parent ke darmiyan direct messaging.
+    Page 20 (Teacher inbox) aur Page 37 (Parent inbox) dono isi se chalenge.
+    """
+    sender = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="messages_sent"
+    )
+    receiver = models.ForeignKey(
+        "accounts.User",
+        on_delete=models.CASCADE,
+        related_name="messages_received"
+    )
+    content = models.TextField()
+    is_read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"{self.sender.full_name} → {self.receiver.full_name}"
+    
