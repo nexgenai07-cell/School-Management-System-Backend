@@ -1,0 +1,353 @@
+"""
+ACCOUNTS -- ADMIN-ROLE VIEWS
+==============================
+Shared auth views (Register/Profile/ChangePassword -- used by every
+role) plus Admin-exclusive views (approvals, user management, roles).
+
+Login itself uses djangorestframework-simplejwt's built-in
+TokenObtainPairView directly in urls/admin.py -- no custom view needed.
+"""
+import random
+import requests  # <-- NEW: EmailJS ke liye
+from django.utils import timezone
+from datetime import timedelta
+from django.conf import settings  
+from django.shortcuts import get_object_or_404
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
+from django.utils.http import urlsafe_base64_encode, urlsafe_base64_decode
+from django.utils.encoding import force_bytes, force_str
+from rest_framework import generics, status, viewsets
+from rest_framework.permissions import IsAuthenticated, AllowAny
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django.contrib.auth.password_validation import validate_password  # <-- IMPORTANT: yeh import missing tha, add karein
+
+from accounts.models import User, Role, StudentProfile, TeacherProfile, PasswordResetToken
+from accounts.permissions import IsAdmin
+from accounts.serializers.admin import (
+    RegisterSerializer, ProfileSerializer, ChangePasswordSerializer,
+    RoleSerializer, PendingUserSerializer, ApprovalActionSerializer,
+    StudentProfileAdminSerializer, TeacherProfileAdminSerializer, UserAdminSerializer,
+)
+
+password_reset_token = PasswordResetTokenGenerator()
+
+
+# ── SHARED AUTH VIEWS (every role uses these) ────────────────────────────
+
+class RegisterView(generics.CreateAPIView):
+    """POST /api/auth/register -- open to anyone, no auth required."""
+    queryset = User.objects.all()
+    serializer_class = RegisterSerializer
+    permission_classes = [AllowAny]
+
+
+class ProfileView(generics.RetrieveUpdateAPIView):
+    """GET/PUT /api/auth/profile -- works for whichever role is logged in."""
+    serializer_class = ProfileSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_object(self):
+        return self.request.user
+
+
+class ChangePasswordView(APIView):
+    """PUT /api/auth/change-password"""
+    permission_classes = [IsAuthenticated]
+
+    def put(self, request):
+        serializer = ChangePasswordSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        request.user.set_password(serializer.validated_data["new_password"])
+        request.user.save()
+        return Response({"detail": "Password updated successfully."})
+
+
+class PasswordResetRequestView(APIView):
+    """POST /api/auth/password-reset"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        # Circular import se bachne ke liye local import kiya hai
+        from accounts.serializers.admin import PasswordResetRequestSerializer
+        
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        user = User.objects.filter(email=serializer.validated_data["email"]).first()
+        if user:
+            uid = urlsafe_base64_encode(force_bytes(user.pk))
+            token = password_reset_token.make_token(user)
+            # SECURITY: Do NOT log/print password-reset tokens.
+            # Tokens can leak via server logs/console and allow account takeover.
+            logger_message = f"Password reset requested for {user.email} -- uid={uid}"
+            print(logger_message)  # Non-sensitive metadata only
+
+
+        return Response({"detail": "If that email is registered, a reset link has been sent."})
+
+
+class PasswordResetConfirmView(APIView):
+    """POST /api/auth/password-reset/confirm"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        # Circular import se bachne ke liye local import kiya hai
+        from accounts.serializers.admin import PasswordResetConfirmSerializer
+        
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        try:
+            uid = force_str(urlsafe_base64_decode(data["uid"]))
+            user = User.objects.get(pk=uid)
+        except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+            return Response({"detail": "Invalid reset link."}, status=status.HTTP_400_BAD_REQUEST)
+
+        if not password_reset_token.check_token(user, data["token"]):
+            return Response({"detail": "Invalid or expired reset link."}, status=status.HTTP_400_BAD_REQUEST)
+
+        user.set_password(data["new_password"])
+        user.save()
+        return Response({"detail": "Password reset successfully. You can now log in."})
+
+
+# ── ADMIN-ONLY VIEWS ───────────────────────────────────────────────────────
+
+class RoleListView(generics.ListAPIView):
+    """GET /api/admin/roles"""
+    queryset = Role.objects.all()
+    serializer_class = RoleSerializer
+    permission_classes = [IsAdmin]
+
+
+class PendingApprovalListView(generics.ListAPIView):
+    """GET /api/admin/approvals -- list every account awaiting approval."""
+    queryset = User.objects.filter(status="Pending")
+    serializer_class = PendingUserSerializer
+    permission_classes = [IsAdmin]
+
+
+class ApprovalActionView(APIView):
+    """PUT /api/admin/approvals/{user_id}"""
+    permission_classes = [IsAdmin]
+
+    def put(self, request, user_id):
+        user = get_object_or_404(User, id=user_id)
+        serializer = ApprovalActionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        action = serializer.validated_data["action"]
+
+        if action == "approve":
+            user.status = "Active"
+            user.save()
+
+            if user.role.role_name == "Student":
+                roll_number = serializer.validated_data.get("roll_number")
+                if not roll_number:
+                    return Response(
+                        {"roll_number": "A roll number must be assigned when approving a student."},
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+                student_profile = StudentProfile.objects.get(user=user)
+                student_profile.roll_number = roll_number
+                student_profile.save()
+        else:
+            user.status = "Rejected"
+            user.save()
+
+            # Cleanup: if a Parent account is rejected, remove the
+            # ParentProfile + ParentStudentLink rows created at signup.
+            if user.role.role_name == "Parent":
+                try:
+                    parent_profile = user.parent_profile
+                    parent_profile.delete()
+                except Exception:
+                    # If profile doesn't exist, ignore cleanup failure to
+                    # keep approval endpoint robust.
+                    pass
+
+        return Response({"detail": f"User {action}d successfully.", "status": user.status})
+
+
+
+class UserViewSet(viewsets.ModelViewSet):
+    """CRUD /api/admin/users"""
+    queryset = User.objects.all().order_by("-created_at")
+    serializer_class = UserAdminSerializer
+    permission_classes = [IsAdmin]
+
+
+class StudentProfileViewSet(viewsets.ModelViewSet):
+    queryset = StudentProfile.objects.select_related("user").all()
+    serializer_class = StudentProfileAdminSerializer
+    permission_classes = [IsAdmin]
+
+
+class TeacherProfileViewSet(viewsets.ModelViewSet):
+    queryset = TeacherProfile.objects.select_related("user").all()
+    serializer_class = TeacherProfileAdminSerializer
+    permission_classes = [IsAdmin]
+    
+
+# ── PASSWORD RESET VIEWS (UPDATED WITH EMAILJS) ──────────────────────────
+
+import random
+import requests
+import json
+from django.conf import settings
+from django.utils import timezone
+from datetime import timedelta
+from rest_framework.views import APIView
+from rest_framework.permissions import AllowAny
+from rest_framework.response import Response
+from django.contrib.auth.password_validation import validate_password
+from accounts.models import User, PasswordResetToken
+
+
+class PasswordResetRequestView(APIView):
+    """POST /api/auth/password-reset -- Sends OTP via EmailJS"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        try:
+            user = User.objects.get(email=email)
+        except User.DoesNotExist:
+            return Response({"detail": "If this email exists, an OTP has been sent."}, status=200)
+
+        # Delete old tokens
+        PasswordResetToken.objects.filter(user=user).delete()
+
+        # Generate OTP
+        token = str(random.randint(100000, 999999))
+        expires_at = timezone.now() + timedelta(minutes=15)
+        PasswordResetToken.objects.create(user=user, token=token, expires_at=expires_at)
+
+        # ─── SEND EMAIL VIA EMAILJS (REAL API) ───
+               # ─── SEND EMAIL VIA EMAILJS (REAL API) ───
+        try:
+            payload = {
+                "service_id": settings.EMAILJS_SERVICE_ID,
+                "template_id": settings.EMAILJS_TEMPLATE_ID,
+                "user_id": settings.EMAILJS_PUBLIC_KEY,  # Public Key
+                "accessToken": settings.EMAILJS_PRIVATE_KEY,  # Optional
+                "template_params": {
+                    "to_email": user.email,      # Template mein {{to_email}}
+                    "to_name": user.full_name,   # Template mein {{to_name}}
+                    "otp_code": token,           # Template mein {{otp_code}}
+                    "expiry_minutes": "15",      # Template mein {{expiry_minutes}}
+                }
+            }
+
+            headers = {"Content-Type": "application/json"}
+
+            response = requests.post(
+                "https://api.emailjs.com/api/v1.0/email/send",
+                json=payload,
+                headers=headers,
+                timeout=10
+            )
+            headers = {"Content-Type": "application/json"}
+
+            response = requests.post(
+                "https://api.emailjs.com/api/v1.0/email/send",
+                json=payload,
+                headers=headers,
+                timeout=10
+            )
+
+            headers = {"Content-Type": "application/json"}
+
+            response = requests.post(
+                "https://api.emailjs.com/api/v1.0/email/send",
+                json=payload,
+                headers=headers,
+                timeout=10
+            )
+
+            # ✅ LOG THE EXACT RESPONSE (For Debugging in Terminal)
+            if response.status_code != 200:
+                error_detail = response.text
+                print(f"❌ EmailJS Error ({response.status_code}): {error_detail}")
+                # If response is JSON, parse it for better logging
+                try:
+                    error_json = response.json()
+                    print(f"EmailJS Error Details: {json.dumps(error_json, indent=2)}")
+                except:
+                    pass
+                return Response({"detail": "Failed to send OTP. Please check your email configuration."}, status=500)
+
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Network/Request Error: {str(e)}")
+            return Response({"detail": "Email service temporarily unavailable. Please try again later."}, status=500)
+
+        return Response({"detail": "If this email exists, an OTP has been sent."}, status=200)
+
+
+class PasswordResetConfirmView(APIView):
+    """POST /api/auth/password-reset/confirm -- Verify OTP and set new password"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
+
+        if not all([email, token, new_password]):
+            return Response({"detail": "email, token, and new_password are required."}, status=400)
+
+        try:
+            user = User.objects.get(email=email)
+            reset_obj = PasswordResetToken.objects.get(user=user, token=token, is_used=False)
+        except (User.DoesNotExist, PasswordResetToken.DoesNotExist):
+            return Response({"detail": "Invalid or expired token."}, status=400)
+
+        if reset_obj.expires_at < timezone.now():
+            return Response({"detail": "Token has expired."}, status=400)
+
+        try:
+            validate_password(new_password)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)
+
+        user.set_password(new_password)
+        user.save()
+        reset_obj.is_used = True
+        reset_obj.save()
+
+        return Response({"detail": "Password reset successful."}, status=200)
+class PasswordResetConfirmView(APIView):
+    """POST /api/auth/password-reset/confirm -- Verify OTP and set new password"""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        email = request.data.get("email")
+        token = request.data.get("token")
+        new_password = request.data.get("new_password")
+
+        if not all([email, token, new_password]):
+            return Response({"detail": "email, token, and new_password are required."}, status=400)
+
+        try:
+            user = User.objects.get(email=email)
+            reset_obj = PasswordResetToken.objects.get(user=user, token=token, is_used=False)
+        except (User.DoesNotExist, PasswordResetToken.DoesNotExist):
+            return Response({"detail": "Invalid or expired token."}, status=400)
+
+        if reset_obj.expires_at < timezone.now():
+            return Response({"detail": "Token has expired."}, status=400)
+
+        # Validate new password
+        try:
+            validate_password(new_password)
+        except Exception as e:
+            return Response({"detail": str(e)}, status=400)
+
+        user.set_password(new_password)
+        user.save()
+        reset_obj.is_used = True
+        reset_obj.save()
+
+        return Response({"detail": "Password reset successful."}, status=200)
