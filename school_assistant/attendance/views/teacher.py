@@ -54,12 +54,24 @@ class TeacherAttendanceViewSet(viewsets.ModelViewSet):
         if getattr(student, "class_section_id", None) != class_section.id:
             raise PermissionDenied("Invalid class_section for the provided student.")
 
+        # Permission rule (coexistence):
+        # Teacher can mark attendance if ANY of the following is true:
+        # 1) Subject-wise assignment: Subject.assigned_teacher == this teacher
+        # 2) Class-wise assignment: ClassSection.teacher_incharge == this teacher
         has_subject_for_section = Subject.objects.filter(
             assigned_teacher=teacher_profile,
             class_section=class_section,
         ).exists()
-        if not has_subject_for_section:
+
+        has_class_incharge = (
+            getattr(class_section, "teacher_incharge_id", None)
+            == getattr(teacher_profile, "id", None)
+        )
+
+
+        if not (has_subject_for_section or has_class_incharge):
             raise PermissionDenied("You are not assigned to this class-section.")
+
 
         # If some client sends is_locked=True, still ensure new records are unlocked.
         serializer.save(marked_by=teacher_profile, is_locked=False)
@@ -104,8 +116,18 @@ class TeacherBehaviorLogViewSet(viewsets.ModelViewSet):
             assigned_teacher=teacher_profile,
             class_section_id=class_section_id,
         ).exists()
-        if not has_subject_for_section:
+
+        # Also allow if teacher is class incharge for that section.
+        has_class_incharge = (
+            hasattr(student, "class_section_id")
+            and getattr(student, "class_section", None) is not None
+            and getattr(getattr(student, "class_section", None), "teacher_incharge_id", None)
+            == getattr(teacher_profile, "id", None)
+        )
+
+        if not (has_subject_for_section or has_class_incharge):
             raise PermissionDenied("You are not assigned to this student's class-section.")
+
 
         serializer.save(reported_by=teacher_profile)
 

@@ -21,6 +21,90 @@ from communication.serializers.message import (
     MessageSerializer,
     ConversationContactSerializer,
 )
+from accounts.models import User, StudentProfile
+from administration.models import Complaint
+
+
+class TeacherBehaviourNotificationView(APIView):
+    """
+    POST /api/teacher/notify-parent/<student_id>
+
+    Teacher student ke parent ko behaviour notification bhejta hai.
+    Notification Notification table mein save hoti hai.
+    Body: { "message": "Sara aaj class mein disruptive thi." }
+    """
+    permission_classes = [IsTeacher]
+
+    def post(self, request, student_id):
+        # Student verify karo — teacher ki class ka hona chahiye
+        try:
+            from academics.models import Subject
+            teacher_profile = request.user.teacher_profile
+            student = StudentProfile.objects.select_related(
+                "user", "class_section"
+            ).get(id=student_id)
+
+            # Teacher sirf apni class ke student ko notify kar sakta hai
+            is_teacher_of_student = Subject.objects.filter(
+                assigned_teacher=teacher_profile,
+                class_section=student.class_section,
+            ).exists()
+
+            if not is_teacher_of_student:
+                return Response(
+                    {"detail": "You are not assigned to this student's class."},
+                    status=status.HTTP_403_FORBIDDEN,
+                )
+        except StudentProfile.DoesNotExist:
+            return Response(
+                {"detail": "Student not found."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        except Exception:
+            return Response(
+                {"detail": "Teacher profile not found."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        message = request.data.get("message", "").strip()
+        if not message:
+            return Response(
+                {"detail": "message field is required."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Student ke saare linked parents ko notify karo
+        parent_profiles = student.parents.select_related("user").all()
+        if not parent_profiles.exists():
+            return Response(
+                {"detail": "No parent linked to this student."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        notifications_created = []
+        for parent_profile in parent_profiles:
+            notif = Notification.objects.create(
+                sender=request.user,
+                receiver=parent_profile.user,
+                type="in_app",
+                message=message,
+                reference_type="student_behaviour",
+                reference_id=student.id,
+            )
+            notifications_created.append({
+                "notification_id": notif.id,
+                "parent_name": parent_profile.user.full_name,
+                "student_name": student.user.full_name,
+                "message": message,
+            })
+
+        return Response(
+            {
+                "detail": f"Notification sent to {len(notifications_created)} parent(s).",
+                "notifications": notifications_created,
+            },
+            status=status.HTTP_201_CREATED,
+        )
 
 
 # ── NOTIFICATIONS (pehle se tha) ─────────────────────────────────────────────

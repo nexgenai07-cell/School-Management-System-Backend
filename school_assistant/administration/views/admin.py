@@ -73,11 +73,31 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
     serializer_class = SchoolEventSerializer
     permission_classes = [IsAdmin]
 
+    def get_queryset(self):
+        """GET /api/events/upcoming should return only upcoming events.
+
+        Spec assumption (from user): today bhi include karna hai.
+        """
+        qs = super().get_queryset()
+
+        # This endpoint is exposed as /api/events/upcoming (see urls).
+        # Detect it by path suffix to avoid changing routing structure.
+        if "events/upcoming" in self.request.path:
+            from django.utils import timezone
+
+            now = timezone.localtime()
+            # Include events occurring today as well.
+            qs = qs.filter(event_date__date__gte=now.date())
+            return qs.order_by("-event_date")
+
+        return qs
+
     def perform_create(self, serializer):
         # "automatically triggers alert notifications to students and
         # parents" (spec, Page 11) -- TODO: dispatch Notification rows
         # here once the notification-dispatch helper is built.
         serializer.save(created_by_admin=self.request.user)
+
 
 
 class EventParticipationViewSet(viewsets.ModelViewSet):

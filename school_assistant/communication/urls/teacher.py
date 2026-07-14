@@ -4,6 +4,7 @@ from communication.views.teacher import (
     TeacherConversationListView,
     TeacherMessageThreadView,
     TeacherMarkMessageReadView,
+    TeacherBehaviourNotificationView,  # ← yeh add karo
 )
 
 urlpatterns = [
@@ -16,4 +17,5 @@ urlpatterns = [
     path("teacher/messages/conversations", TeacherConversationListView.as_view()),
     path("teacher/messages/read/<int:message_id>", TeacherMarkMessageReadView.as_view()),
     path("teacher/messages/<int:parent_id>", TeacherMessageThreadView.as_view()),
+    path("teacher/notify-parent/<int:student_id>", TeacherBehaviourNotificationView.as_view()),  # ← yeh add karo
 ]

@@ -15,16 +15,12 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 # Django's app registry is ready first.
 django_asgi_app = get_asgi_application()
 
-from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
+from channels.routing import ProtocolTypeRouter
 
+# Chatbot websocket disabled: no websocket router registered.
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
-    "websocket": AuthMiddlewareStack(
-        URLRouter([
-            # TODO: add chat.routing.websocket_urlpatterns here once
-            # chat/consumers.py and chat/routing.py are built, e.g.:
-            # path("ws/chat/<int:session_id>/", ChatConsumer.as_asgi()),
-        ])
-    ),
 })
+
+
+

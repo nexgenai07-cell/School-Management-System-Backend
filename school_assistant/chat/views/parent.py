@@ -8,7 +8,12 @@ from accounts.models import ParentStudentLink
 from accounts.permissions import IsParent
 from chat.models import ChatSession, ChatMessage
 from chat.serializers.parent import ParentChatSessionSerializer, ParentChatMessageSerializer
-from chat.ai_service import get_ai_response
+# AI service disabled in this project version
+
+from chat.validators import validate_message_content, validate_session_access
+
+
+# AI function disabled in this repo version; keeping file consistent.
 
 
 class ParentChatSessionViewSet(viewsets.ModelViewSet):
@@ -24,9 +29,13 @@ class ParentChatSessionViewSet(viewsets.ModelViewSet):
 
 
 class ParentChatMessageViewSet(viewsets.ModelViewSet):
-    """Parents can send messages -- saves it AND gets back an AI reply."""
+    """Parents can send messages.
+
+    This repo version me AI service disabled hai.
+    """
     serializer_class = ParentChatMessageSerializer
     permission_classes = [IsParent]
+
 
     def get_queryset(self):
         return ChatMessage.objects.filter(session__user=self.request.user).order_by("created_at")
@@ -58,6 +67,8 @@ class ParentChatMessageViewSet(viewsets.ModelViewSet):
 
         # ✅ Ensure session belongs to this parent
         session = get_object_or_404(ChatSession, id=session_id, user=request.user)
+        validate_session_access(request.user, session)
+
 
         # ✅ Parent child scoping (no new endpoint):
         # If frontend sends selected child_id, persist it to the session
@@ -69,12 +80,14 @@ class ParentChatMessageViewSet(viewsets.ModelViewSet):
             session.save(update_fields=["active_child_id"])
 
         content = request.data.get("content", "")
+        content = validate_message_content(content)
         # ✅ Save parent message
         user_msg = ChatMessage.objects.create(session=session, role="user", content=content)
 
-        # ✅ Call AI service and return structured payload
-        ai_payload = get_ai_response(user=request.user, session=session, user_message=content)
-        ai_text = ai_payload.get("reply", "")
+
+        # ✅ AI service disabled in this repo version
+        ai_payload = {}
+        ai_text = "Sorry, abhi AI service temporarily unavailable hai. Thodi der baad try karein."
 
         # ✅ Save AI reply
         ai_msg = ChatMessage.objects.create(session=session, role="assistant", content=ai_text)
@@ -86,6 +99,8 @@ class ParentChatMessageViewSet(viewsets.ModelViewSet):
                 "messages": serializer.data,
                 "assistant_reply": ai_text,
                 "assistant_payload": ai_payload,
+                "assistant_sender_role": ai_payload.get("sender_role"),
+                "assistant_sender_name": ai_payload.get("sender_name"),
             },
             status=status.HTTP_201_CREATED,
         )

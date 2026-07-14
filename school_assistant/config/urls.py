@@ -37,6 +37,7 @@ urlpatterns = [
     path("api/", include("finance.urls")),
     path("api/", include("communication.urls")),
     path("api/", include("administration.urls")),
-    path("api/", include("chat.urls")),  
+
+
     # path("api/webhooks/stripe", include("finance.urls.webhooks")),
 ]

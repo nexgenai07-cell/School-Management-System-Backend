@@ -4,7 +4,8 @@ from administration.views.teacher import (
 )
 
 urlpatterns = [
-    path("teacher/complaints", TeacherComplaintViewSet.as_view({"get": "list"})),
+    path("teacher/complaints", TeacherComplaintViewSet.as_view({"get": "list", "post": "create"})),
+
     path("teacher/complaints/<int:pk>", TeacherComplaintViewSet.as_view({"get": "retrieve"})),
 
     path("teacher/events", TeacherEventViewSet.as_view({"get": "list"})),

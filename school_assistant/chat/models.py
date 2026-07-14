@@ -49,6 +49,40 @@ class ChatSession(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
 
+class PendingAction(models.Model):
+    class Status:
+        PENDING = "pending"
+        CONFIRMED = "confirmed"
+        CANCELLED = "cancelled"
+
+    STATUS_CHOICES = (
+        (Status.PENDING, "Pending"),
+        (Status.CONFIRMED, "Confirmed"),
+        (Status.CANCELLED, "Cancelled"),
+    )
+
+    session = models.ForeignKey(
+        "ChatSession", on_delete=models.CASCADE, related_name="pending_actions"
+    )
+    tool_name = models.CharField(max_length=100, db_index=True)
+
+    # store params as JSON-encoded string (simple + migration-safe)
+    params = models.TextField()
+
+    status = models.CharField(
+        max_length=15,
+        choices=STATUS_CHOICES,
+        default=Status.PENDING,
+        db_index=True,
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"PendingAction({self.id}) {self.tool_name} [{self.status}]"
+
+
 class ChatMessage(models.Model):
     ROLE_CHOICES = (("user", "user"), ("assistant", "assistant"))
 

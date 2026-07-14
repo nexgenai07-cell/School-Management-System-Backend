@@ -14,7 +14,7 @@ python-decouple==3.8
 stripe==15.2.1
 whitenoise==6.7.0
 cloudinary==1.40.0
-
+google-generativeai==0.5.4
 # Add ONE of these once the AI chatbot's LLM integration is actually built:
 # openai==1.30.0
 # google-generativeai==0.5.4

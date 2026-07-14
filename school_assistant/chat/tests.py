@@ -6,7 +6,10 @@ from unittest.mock import patch
 from django.test import SimpleTestCase
 from rest_framework.exceptions import ValidationError
 
-from chat.ai_service import build_assistant_payload
+# tests file kept but updated imports are optional; chatbot endpoints are disabled in this repo version.
+# chatbot disabled: tests should not import ai_service modules
+from chat.ai_service_optimized import get_ai_response
+
 from chat.views.parent import ParentChatMessageViewSet
 
 
