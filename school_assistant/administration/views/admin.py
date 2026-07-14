@@ -5,6 +5,7 @@ ADMINISTRATION -- ADMIN-ROLE VIEWS
 
 from rest_framework import viewsets, generics
 from rest_framework.response import Response
+<<<<<<< HEAD
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
@@ -12,6 +13,19 @@ from accounts.models import StudentProfile
 from accounts.permissions import IsAdmin
 from administration.models import Complaint, Inventory, SchoolEvent, EventParticipation, Certificate
 
+=======
+from django.db.models import Count, Sum, Q
+from django.db.models.functions import TruncMonth
+from datetime import datetime, timedelta
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.views import APIView
+from django.shortcuts import get_object_or_404
+from accounts.models import User, StudentProfile, TeacherProfile
+from accounts.permissions import IsAdmin
+from administration.models import Complaint, Inventory, SchoolEvent, EventParticipation, Certificate
+from attendance.models import Attendance
+from finance.models import Fee
+>>>>>>> nimra-fix-develop
 from administration.serializers.admin import (
     ComplaintSerializer, InventorySerializer, SchoolEventSerializer,
     EventParticipationSerializer, CertificateSerializer, CertificateGenerateSerializer,
@@ -69,6 +83,28 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
     serializer_class = SchoolEventSerializer
     permission_classes = [IsAdmin]
 
+<<<<<<< HEAD
+=======
+    def get_queryset(self):
+        """GET /api/events/upcoming should return only upcoming events.
+
+        Spec assumption (from user): today bhi include karna hai.
+        """
+        qs = super().get_queryset()
+
+        # This endpoint is exposed as /api/events/upcoming (see urls).
+        # Detect it by path suffix to avoid changing routing structure.
+        if "events/upcoming" in self.request.path:
+            from django.utils import timezone
+
+            now = timezone.localtime()
+            # Include events occurring today as well.
+            qs = qs.filter(event_date__date__gte=now.date())
+            return qs.order_by("-event_date")
+
+        return qs
+
+>>>>>>> nimra-fix-develop
     def perform_create(self, serializer):
         # "automatically triggers alert notifications to students and
         # parents" (spec, Page 11) -- TODO: dispatch Notification rows
@@ -76,6 +112,10 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
         serializer.save(created_by_admin=self.request.user)
 
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> nimra-fix-develop
 class EventParticipationViewSet(viewsets.ModelViewSet):
     """Register participants per event, assign position/certificate."""
     queryset = EventParticipation.objects.select_related("student__user", "event").all()
@@ -148,3 +188,80 @@ class CertificateDownloadView(APIView):
             id=id,
         )
         return Response(CertificateSerializer(certificate).data)
+<<<<<<< HEAD
+=======
+
+
+class AdminStatsView(APIView):
+    """
+    GET /api/admin/stats
+    Admin dashboard ke liye saare statistics.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        # 1. Basic Counts
+        total_students = StudentProfile.objects.count()
+        total_teachers = TeacherProfile.objects.count()
+        total_parents = User.objects.filter(role__role_name="Parent", is_active=True).count()
+        pending_approvals = User.objects.filter(status="Pending").count()
+        open_complaints = Complaint.objects.filter(status="Open").count()
+
+        # 2. Average Attendance (Current Month)
+        today = datetime.now().date()
+        first_day = today.replace(day=1)
+        attendance_qs = Attendance.objects.filter(date__gte=first_day, date__lte=today)
+        total_attendance = attendance_qs.count()
+        present_count = attendance_qs.filter(status="Present").count()
+        avg_attendance = round((present_count / total_attendance * 100)) if total_attendance > 0 else 0
+
+        # 3. Monthly Revenue (Current Month)
+        monthly_fees = Fee.objects.filter(
+            month__year=today.year,
+            month__month=today.month,
+            status="Paid"
+        )
+        monthly_revenue = monthly_fees.aggregate(total=Sum('amount_paid'))['total'] or 0
+
+        # 4. Fee Collection Chart (Last 6 Months)
+        fee_chart = []
+        for i in range(6):
+            month_date = today.replace(day=1) - timedelta(days=30*i)
+            collected = Fee.objects.filter(
+                month__year=month_date.year,
+                month__month=month_date.month,
+                status="Paid"
+            ).aggregate(total=Sum('amount_paid'))['total'] or 0
+            fee_chart.append({
+                "month": month_date.strftime("%b"),
+                "collected": collected
+            })
+        fee_chart.reverse()
+
+        # 5. Attendance Trend (Last 7 Days)
+        attendance_trend = []
+        for i in range(7):
+            day = today - timedelta(days=i)
+            day_qs = Attendance.objects.filter(date=day)
+            total = day_qs.count()
+            present = day_qs.filter(status="Present").count()
+            percentage = round((present / total * 100)) if total > 0 else 0
+            attendance_trend.append({
+                "day": day.strftime("%a"),
+                "percentage": percentage
+            })
+        attendance_trend.reverse()
+
+        # 6. Response Return
+        return Response({
+            "total_students": total_students,
+            "total_teachers": total_teachers,
+            "total_parents": total_parents,
+            "pending_approvals": pending_approvals,
+            "monthly_revenue": monthly_revenue,
+            "avg_attendance": avg_attendance,
+            "open_complaints": open_complaints,
+            "fee_collection_chart": fee_chart,
+            "attendance_trend": attendance_trend,
+        })
+>>>>>>> nimra-fix-develop

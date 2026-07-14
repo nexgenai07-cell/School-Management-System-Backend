@@ -27,7 +27,13 @@ class ParentStudentLinkViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         # Force parent to the currently logged-in parent.
+<<<<<<< HEAD
         parent_profile = self.request.user.parent_profile
+=======
+        parent_profile = getattr(self.request.user, "parent_profile", None)
+        if not parent_profile:
+            raise PermissionDenied("Parent profile is not available.")
+>>>>>>> nimra-fix-develop
         serializer.save(parent=parent_profile)
 
 

@@ -25,6 +25,19 @@ from rest_framework.permissions import BasePermission
 from accounts.models import RolePermission
 
 
+def get_user_profile(user, role_name):
+    if not user or not getattr(user, "is_authenticated", False):
+        return None
+
+    if role_name == "Teacher":
+        return getattr(user, "teacher_profile", None)
+    if role_name == "Student":
+        return getattr(user, "student_profile", None)
+    if role_name == "Parent":
+        return getattr(user, "parent_profile", None)
+    return None
+
+
 class IsAdmin(BasePermission):
     """Allows access only to users with the Admin role."""
 
@@ -78,8 +91,8 @@ class IsTeacher(BasePermission):
     def has_permission(self, request, view):
         return bool(
             request.user
-            and request.user.is_authenticated
-            and request.user.role.role_name == "Teacher"
+            and getattr(request.user, "is_authenticated", False)
+            and getattr(getattr(request.user, "role", None), "role_name", None) == "Teacher"
         )
 
 
@@ -89,8 +102,8 @@ class IsStudent(BasePermission):
     def has_permission(self, request, view):
         return bool(
             request.user
-            and request.user.is_authenticated
-            and request.user.role.role_name == "Student"
+            and getattr(request.user, "is_authenticated", False)
+            and getattr(getattr(request.user, "role", None), "role_name", None) == "Student"
         )
 
 
@@ -100,8 +113,8 @@ class IsParent(BasePermission):
     def has_permission(self, request, view):
         return bool(
             request.user
-            and request.user.is_authenticated
-            and request.user.role.role_name == "Parent"
+            and getattr(request.user, "is_authenticated", False)
+            and getattr(getattr(request.user, "role", None), "role_name", None) == "Parent"
         )
 
 

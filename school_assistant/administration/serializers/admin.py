@@ -37,7 +37,11 @@ class ComplaintSerializer(serializers.ModelSerializer):
 class InventorySerializer(serializers.ModelSerializer):
     class Meta:
         model = Inventory
+<<<<<<< HEAD
         fields = ["id", "item_name", "total_quantity", "assigned_to_room", "last_updated"]
+=======
+        fields = ["id", "item_name", "category", "total_quantity", "assigned_to_room", "last_updated"]
+>>>>>>> nimra-fix-develop
 
     # VALIDATION: Quantity negative na ho
     def validate_total_quantity(self, value):

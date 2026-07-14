@@ -1,8 +1,15 @@
 # Ignore environment files
+<<<<<<< HEAD
 .env
 */.env
 
 # Python
+=======
+# .env
+#*/.env
+
+# Python cache
+>>>>>>> nimra-fix-develop
 __pycache__/
 *.pyc
 *.pyo
@@ -14,6 +21,7 @@ db.sqlite3
 /staticfiles/
 /media/
 
+<<<<<<< HEAD
 # Virtual environment
 venv/
 env/
@@ -25,3 +33,14 @@ env/
 # OS
 .DS_Store
 .vercel
+=======
+# IDEs and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+.vercel
+school_assistant/.env
+.env
+
+>>>>>>> nimra-fix-develop

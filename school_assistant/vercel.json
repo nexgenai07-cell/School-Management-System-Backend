@@ -1,8 +1,10 @@
 {
-  "services": {
+  "experimentalServices": {
     "web": {
       "root": ".",
-      "entrypoint": "config/wsgi.py"
+      "entrypoint": "config/wsgi.py",
+      "routePrefix": "/",
+      "buildCommand": "python manage.py collectstatic --noinput"
     }
   },
   "rewrites": [
@@ -12,6 +14,33 @@
         "type": "service",
         "service": "web"
       }
+    }
+  ],
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Credentials",
+          "value": "true"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Authorization, Content-Type, Accept, Origin, X-Requested-With"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET, POST, PUT, DELETE, PATCH, OPTIONS"
+        },
+        {
+          "key": "Access-Control-Expose-Headers",
+          "value": "Authorization, Content-Type"
+        }
+      ]
     }
   ]
 }

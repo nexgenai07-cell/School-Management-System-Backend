@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 from django.urls import path
 from chat.views.teacher import TeacherChatSessionViewSet, TeacherChatMessageViewSet
 
@@ -8,3 +9,8 @@ urlpatterns = [
     path("teacher/chat/messages", TeacherChatMessageViewSet.as_view({"get": "list", "post": "create"})),
     path("teacher/chat/messages/<int:pk>", TeacherChatMessageViewSet.as_view({"get": "retrieve"})),
 ]
+=======
+# Chatbot HTTP endpoints disabled.
+urlpatterns = []
+
+>>>>>>> nimra-fix-develop

@@ -1,5 +1,4 @@
-"""
-ASGI config.
+"""ASGI config.
 
 Required because the AI chatbot uses WebSockets (via Django Channels) for
 real-time message delivery, in addition to normal HTTP request/response.
@@ -15,16 +14,22 @@ os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
 # Django's app registry is ready first.
 django_asgi_app = get_asgi_application()
 
-from channels.routing import ProtocolTypeRouter, URLRouter
+from channels.routing import ProtocolTypeRouter
 from channels.auth import AuthMiddlewareStack
 
-application = ProtocolTypeRouter({
-    "http": django_asgi_app,
-    "websocket": AuthMiddlewareStack(
-        URLRouter([
-            # TODO: add chat.routing.websocket_urlpatterns here once
-            # chat/consumers.py and chat/routing.py are built, e.g.:
-            # path("ws/chat/<int:session_id>/", ChatConsumer.as_asgi()),
-        ])
-    ),
-})
+# WebSocket enabled: route websocket connections to chat consumers.
+# If chat/routing.py exists, prefer it; otherwise keep patterns empty.
+try:
+    from school_assistant.chat import routing as chat_routing
+
+    websocket_urlpatterns = chat_routing.websocket_urlpatterns
+except Exception:
+    websocket_urlpatterns = []
+
+application = ProtocolTypeRouter(
+    {
+        "http": django_asgi_app,
+        "websocket": AuthMiddlewareStack(websocket_urlpatterns),
+    }
+)
+

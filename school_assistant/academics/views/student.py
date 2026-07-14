@@ -21,8 +21,14 @@ class StudentAssignmentViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsStudent]
 
     def get_queryset(self):
+<<<<<<< HEAD
         # restrict to assignments of student's class
         student_profile = self.request.user.student_profile
+=======
+        student_profile = getattr(self.request.user, "student_profile", None)
+        if not student_profile:
+            return Assignment.objects.none()
+>>>>>>> nimra-fix-develop
         return Assignment.objects.filter(class_section_id=student_profile.class_section_id)
 
 
@@ -36,7 +42,14 @@ class StudentSubmissionViewSet(viewsets.ModelViewSet):
         return AssignmentSubmission.objects.filter(student__user=self.request.user)
 
     def perform_create(self, serializer):
+<<<<<<< HEAD
         student_profile = self.request.user.student_profile
+=======
+        student_profile = getattr(self.request.user, "student_profile", None)
+        if not student_profile:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied("Student profile is not available.")
+>>>>>>> nimra-fix-develop
         assignment = serializer.validated_data["assignment"]
         if assignment.class_section_id != student_profile.class_section_id:
             from rest_framework.exceptions import PermissionDenied

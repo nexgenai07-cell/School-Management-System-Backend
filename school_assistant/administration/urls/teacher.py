@@ -4,7 +4,12 @@ from administration.views.teacher import (
 )
 
 urlpatterns = [
+<<<<<<< HEAD
     path("teacher/complaints", TeacherComplaintViewSet.as_view({"get": "list"})),
+=======
+    path("teacher/complaints", TeacherComplaintViewSet.as_view({"get": "list", "post": "create"})),
+
+>>>>>>> nimra-fix-develop
     path("teacher/complaints/<int:pk>", TeacherComplaintViewSet.as_view({"get": "retrieve"})),
 
     path("teacher/events", TeacherEventViewSet.as_view({"get": "list"})),
