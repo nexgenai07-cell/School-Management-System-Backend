@@ -20,4 +20,6 @@ db.sqlite3
 *.swp
 .DS_Store
 .vercel
-"school_assistant/.env" 
+school_assistant/.env
+.env
+
