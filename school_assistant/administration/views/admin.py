@@ -5,7 +5,6 @@ ADMINISTRATION -- ADMIN-ROLE VIEWS
 
 from rest_framework import viewsets, generics
 from rest_framework.response import Response
-<<<<<<< HEAD
 from rest_framework.views import APIView
 from django.shortcuts import get_object_or_404
 
@@ -13,7 +12,6 @@ from accounts.models import StudentProfile
 from accounts.permissions import IsAdmin
 from administration.models import Complaint, Inventory, SchoolEvent, EventParticipation, Certificate
 
-=======
 from django.db.models import Count, Sum, Q
 from django.db.models.functions import TruncMonth
 from datetime import datetime, timedelta
@@ -25,7 +23,6 @@ from accounts.permissions import IsAdmin
 from administration.models import Complaint, Inventory, SchoolEvent, EventParticipation, Certificate
 from attendance.models import Attendance
 from finance.models import Fee
->>>>>>> nimra-fix-develop
 from administration.serializers.admin import (
     ComplaintSerializer, InventorySerializer, SchoolEventSerializer,
     EventParticipationSerializer, CertificateSerializer, CertificateGenerateSerializer,
@@ -83,8 +80,6 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
     serializer_class = SchoolEventSerializer
     permission_classes = [IsAdmin]
 
-<<<<<<< HEAD
-=======
     def get_queryset(self):
         """GET /api/events/upcoming should return only upcoming events.
 
@@ -104,7 +99,6 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
 
         return qs
 
->>>>>>> nimra-fix-develop
     def perform_create(self, serializer):
         # "automatically triggers alert notifications to students and
         # parents" (spec, Page 11) -- TODO: dispatch Notification rows
@@ -112,10 +106,7 @@ class SchoolEventViewSet(viewsets.ModelViewSet):
         serializer.save(created_by_admin=self.request.user)
 
 
-<<<<<<< HEAD
-=======
 
->>>>>>> nimra-fix-develop
 class EventParticipationViewSet(viewsets.ModelViewSet):
     """Register participants per event, assign position/certificate."""
     queryset = EventParticipation.objects.select_related("student__user", "event").all()
@@ -188,8 +179,6 @@ class CertificateDownloadView(APIView):
             id=id,
         )
         return Response(CertificateSerializer(certificate).data)
-<<<<<<< HEAD
-=======
 
 
 class AdminStatsView(APIView):
@@ -264,4 +253,3 @@ class AdminStatsView(APIView):
             "fee_collection_chart": fee_chart,
             "attendance_trend": attendance_trend,
         })
->>>>>>> nimra-fix-develop

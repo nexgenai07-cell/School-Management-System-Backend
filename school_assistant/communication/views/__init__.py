@@ -1,19 +1,13 @@
-<<<<<<< HEAD
 # communication/views/__init__.py
 
-=======
->>>>>>> nimra-fix-develop
+# communication/views/__init__.py
+
 from .admin import (
     NotificationListView, UnreadNotificationListView,
     MarkNotificationReadView, MarkAllNotificationsReadView,
     MediaCampaignViewSet, PublishCampaignView, CampaignLogListView,
 )
-<<<<<<< HEAD
 
-from .student import StudentNotificationListView
-from .teacher import TeacherNotificationListView
-from .parent import ParentNotificationListView
-=======
 from .student import StudentNotificationListView
 from .teacher import (
     TeacherNotificationListView,
@@ -27,4 +21,3 @@ from .parent import (
     ParentMessageThreadView,
     ParentMarkMessageReadView,
 )
->>>>>>> nimra-fix-develop

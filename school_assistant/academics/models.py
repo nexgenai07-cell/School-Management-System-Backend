@@ -14,12 +14,6 @@ from django.db import models
 
 
 class ClassSection(models.Model):
-<<<<<<< HEAD
-    """A single class + section combination, e.g. '10-A'."""
-
-    class_name = models.CharField(max_length=20)
-    section = models.CharField(max_length=5)
-=======
     class_name = models.CharField(max_length=20)
     section = models.CharField(max_length=5)
     default_room = models.ForeignKey(
@@ -29,7 +23,6 @@ class ClassSection(models.Model):
         blank=True, 
         related_name="default_classes"
     )
->>>>>>> nimra-fix-develop
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -31,13 +31,11 @@ class Complaint(models.Model):
 
 
 class Inventory(models.Model):
-<<<<<<< HEAD
     item_name = models.CharField(max_length=150)
     total_quantity = models.PositiveIntegerField()
     assigned_to_room = models.CharField(max_length=100, blank=True, db_index=True)  # Page 10 filters by room
     last_updated = models.DateTimeField(auto_now=True)
 
-=======
     CATEGORY_CHOICES = [
         ("Electronics", "Electronics"),
         ("Furniture", "Furniture"),
@@ -56,7 +54,6 @@ class Inventory(models.Model):
         return f"{self.item_name} ({self.category})"
 
 
->>>>>>> nimra-fix-develop
 
 class SchoolEvent(models.Model):
     event_name = models.CharField(max_length=200)

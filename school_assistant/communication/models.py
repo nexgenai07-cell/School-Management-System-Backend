@@ -51,8 +51,6 @@ class MediaCampaignLog(models.Model):
         "accounts.User", on_delete=models.SET_NULL, null=True, related_name="campaigns_created"
     )
     created_at = models.DateTimeField(auto_now_add=True)
-<<<<<<< HEAD
-=======
 class Message(models.Model):
     """
     Teacher aur Parent ke darmiyan direct messaging.
@@ -78,4 +76,3 @@ class Message(models.Model):
     def __str__(self):
         return f"{self.sender.full_name} → {self.receiver.full_name}"
     
->>>>>>> nimra-fix-develop

@@ -2,11 +2,8 @@ from django.urls import path
 
 from administration.views.admin import (
     ComplaintViewSet, InventoryViewSet, InventorySummaryView, SchoolEventViewSet,
-<<<<<<< HEAD
     EventParticipationViewSet, CertificateViewSet, CertificateGenerateView, CertificateDownloadView,
-=======
     EventParticipationViewSet, CertificateViewSet, CertificateGenerateView, CertificateDownloadView, AdminStatsView,
->>>>>>> nimra-fix-develop
 )
 
 urlpatterns = [
@@ -32,9 +29,6 @@ urlpatterns = [
     path("admin/certificates", CertificateViewSet.as_view({"get": "list"})),
     path("admin/certificates/<int:pk>", CertificateViewSet.as_view({"get": "retrieve"})),
     path("admin/certificates/<int:id>/download", CertificateDownloadView.as_view()),
-<<<<<<< HEAD
-=======
     path("admin/stats", AdminStatsView.as_view(), name="admin-stats"),
->>>>>>> nimra-fix-develop
     
 ]

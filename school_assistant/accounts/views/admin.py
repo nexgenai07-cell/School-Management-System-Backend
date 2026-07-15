@@ -153,15 +153,12 @@ class ApprovalActionView(APIView):
                 student_profile = StudentProfile.objects.get(user=user)
                 student_profile.roll_number = roll_number
                 student_profile.save()
-<<<<<<< HEAD
-=======
 
             # Teacher approval: ensure a TeacherProfile exists.
             # Without this, teacher-scoped endpoints will crash with
             # RelatedObjectDoesNotExist (User has no teacher_profile).
             if user.role.role_name == "Teacher":
                 TeacherProfile.objects.get_or_create(user=user)
->>>>>>> nimra-fix-develop
         else:
             user.status = "Rejected"
             user.save()
@@ -197,9 +194,7 @@ class StudentProfileViewSet(viewsets.ModelViewSet):
 class TeacherProfileViewSet(viewsets.ModelViewSet):
     queryset = TeacherProfile.objects.select_related("user").all()
     serializer_class = TeacherProfileAdminSerializer
-<<<<<<< HEAD
     permission_classes = [IsAdmin]
-=======
     permission_classes = [IsAdmin]
     
 
@@ -363,4 +358,3 @@ class PasswordResetConfirmView(APIView):
         reset_obj.save()
 
         return Response({"detail": "Password reset successful."}, status=200)
->>>>>>> nimra-fix-develop

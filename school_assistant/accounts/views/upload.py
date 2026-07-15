@@ -1,8 +1,3 @@
-<<<<<<< HEAD
-=======
-import os
-import cloudinary.uploader
->>>>>>> nimra-fix-develop
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework.views import APIView
@@ -11,16 +6,11 @@ from rest_framework.parsers import MultiPartParser, FormParser
 from rest_framework.response import Response
 from rest_framework import status
 
-<<<<<<< HEAD
+import os
 import cloudinary.uploader
 
 from accounts.serializers.upload_serializer import FileUploadSerializer
 
-
-class FileUploadView(APIView):
-=======
-MAX_FILE_SIZE_MB = 5
-ALLOWED_EXTENSIONS = {".pdf"}
 
 class FileUploadView(APIView):
     """
@@ -29,16 +19,14 @@ class FileUploadView(APIView):
     Admin/Parent ko access deny hoga.
     """
 
->>>>>>> nimra-fix-develop
+    MAX_FILE_SIZE_MB = 5
+    ALLOWED_EXTENSIONS = {".pdf"}
+
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser]
 
     @swagger_auto_schema(
-<<<<<<< HEAD
-        operation_summary="Upload a file (multipart/form-data)",
-=======
         operation_summary="Upload a PDF file (max 5 MB)",
->>>>>>> nimra-fix-develop
         consumes=["multipart/form-data"],
         manual_parameters=[
             openapi.Parameter(
@@ -46,11 +34,7 @@ class FileUploadView(APIView):
                 in_=openapi.IN_FORM,
                 type=openapi.TYPE_FILE,
                 required=True,
-<<<<<<< HEAD
-                description="File to upload",
-=======
                 description="PDF file to upload (max 5 MB)",
->>>>>>> nimra-fix-develop
             )
         ],
         responses={
@@ -59,24 +43,12 @@ class FileUploadView(APIView):
                 examples={"application/json": {"url": "https://..."}},
             ),
             400: "Bad request",
-<<<<<<< HEAD
-        },
-    )
-    def post(self, request):
-        serializer = FileUploadSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-
-        file_obj = serializer.validated_data["file"]
-        result = cloudinary.uploader.upload(file_obj, resource_type="auto")
-        return Response({"url": result["secure_url"]}, status=status.HTTP_201_CREATED)
-
-=======
             403: "Forbidden",
             502: "Cloud upload failed",
         },
     )
     def post(self, request):
-        # ✅ Role check (safe: role missing ho to crash na ho)
+        # ✅ Role check
         role = getattr(request.user, "role", None)
         role_name = getattr(role, "role_name", None)
         if role_name not in ["Student", "Teacher"]:
@@ -86,11 +58,6 @@ class FileUploadView(APIView):
             )
 
         # ✅ File input check
-        if not request.FILES:
-            return Response(
-                {"detail": "No file provided."}, status=status.HTTP_400_BAD_REQUEST
-            )
-
         file_obj = request.FILES.get("file")
         if not file_obj:
             return Response(
@@ -99,37 +66,26 @@ class FileUploadView(APIView):
             )
 
         # ✅ File size check
-        if file_obj.size > MAX_FILE_SIZE_MB * 1024 * 1024:
+        if file_obj.size > self.MAX_FILE_SIZE_MB * 1024 * 1024:
             return Response(
-                {
-                    "detail": (
-                        f"File too large. Max allowed size is {MAX_FILE_SIZE_MB} MB."
-                    )
-                },
+                {"detail": f"File too large. Max allowed size is {self.MAX_FILE_SIZE_MB} MB."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ✅ File type check (extension based)
+        # ✅ File type check
         ext = os.path.splitext(file_obj.name)[1].lower()
-        if ext not in ALLOWED_EXTENSIONS:
+        if ext not in self.ALLOWED_EXTENSIONS:
             return Response(
-                {
-                    "detail": (
-                        f"File type '{ext}' not allowed. Only PDF files are accepted."
-                    )
-                },
+                {"detail": f"File type '{ext}' not allowed. Only PDF files are accepted."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # ✅ Upload to Cloudinary (defensive: Cloud errors ko 500 na banne do)
+        # ✅ Upload to Cloudinary
         try:
             result = cloudinary.uploader.upload(file_obj, resource_type="auto")
         except Exception as e:
             return Response(
-                {
-                    "detail": "File upload failed. Please try again later.",
-                    "error": str(e),
-                },
+                {"detail": "File upload failed. Please try again later.", "error": str(e)},
                 status=status.HTTP_502_BAD_GATEWAY,
             )
 
@@ -141,5 +97,3 @@ class FileUploadView(APIView):
             )
 
         return Response({"url": secure_url}, status=status.HTTP_201_CREATED)
->>>>>>> nimra-fix-develop
-
