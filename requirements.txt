@@ -1,3 +1,4 @@
+setuptools<82
 Django==5.0.6
 djangorestframework==3.15.1
 djangorestframework-simplejwt==5.3.1
@@ -14,6 +15,8 @@ stripe==15.2.1
 cloudinary==1.41.0
 django-cloudinary-storage==0.3.0
 django-extensions==3.2.3
+django-filter==24.3
+
 # Add ONE of these once the AI chatbot's LLM integration is actually built:
 # openai==1.30.0
 # google-generativeai==0.5.4
