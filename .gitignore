@@ -1,0 +1,38 @@
+# Environments
+.env
+*.env
+.env.local
+.env.production
+.env.vercel
+school_assistant/.env.local
+school_assistant/.env.production
+school_assistant/.env.vercel
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Django
+*.sqlite3
+db.sqlite3
+/staticfiles/
+/media/
+
+# IDEs and OS
+.vscode/
+.idea/
+*.swp
+.DS_Store
+.vercel
+
+__pycache__/
+*.pyc
+.vercel
+.env*

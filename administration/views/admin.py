@@ -1,0 +1,265 @@
+"""
+ADMINISTRATION -- ADMIN-ROLE VIEWS
+=====================================
+"""
+from django.db.models import Count, Sum, Q
+from django.db.models.functions import TruncMonth
+from datetime import datetime, timedelta
+from rest_framework import viewsets, generics
+from rest_framework.response import Response
+from rest_framework.views import APIView
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import filters
+
+from accounts.models import User, StudentProfile, TeacherProfile
+from accounts.permissions import IsAdmin
+from rest_framework.permissions import IsAuthenticated
+from administration.models import Complaint, Inventory, SchoolEvent, EventParticipation, Certificate
+from administration.serializers.admin import (
+    ComplaintSerializer, InventorySerializer, SchoolEventSerializer,
+    EventParticipationSerializer, CertificateSerializer, CertificateGenerateSerializer,
+)
+from attendance.models import Attendance
+from finance.models import Fee
+from administration.models import Complaint
+
+class ComplaintViewSet(viewsets.ModelViewSet):
+    """
+    Master Complaint Board (Page 13) -- shows complaints from EVERY role.
+    Admin can update status/remarks; filing a complaint itself
+    (reporter=request.user) is shared logic Dev B's role-files reuse via
+    the same ViewSet, just through their own urls.
+    """
+    queryset = Complaint.objects.select_related("reporter__role", "against_user").all().order_by("-created_at")
+    serializer_class = ComplaintSerializer
+    permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        qs = super().get_queryset()
+        status_filter = self.request.query_params.get("status")
+        if status_filter:
+            qs = qs.filter(status=status_filter)
+        return qs
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['status', 'complaint_type']
+    search_fields = ['description', 'admin_remarks', 'reporter__full_name']
+    ordering_fields = ['created_at', 'status']
+    ordering = ['-created_at']
+
+
+class InventoryViewSet(viewsets.ModelViewSet):
+    """CRUD /api/admin/inventory"""
+    serializer_class = InventorySerializer
+    permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        qs = Inventory.objects.all()
+        room = self.request.query_params.get("room")  # supports Page 10's "filter by room" requirement
+        if room:
+            qs = qs.filter(assigned_to_room=room)
+        return qs
+    ilter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['assigned_to_room']
+    search_fields = ['item_name']
+    ordering_fields = ['item_name', 'total_quantity', 'last_updated']
+    ordering = ['item_name']
+
+class InventorySummaryView(APIView):
+    """GET /api/admin/inventory/summary"""
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        items = Inventory.objects.all()
+        return Response({
+            "total_items": items.count(),
+            "total_quantity": sum(i.total_quantity for i in items),
+            "by_room": list(items.values("assigned_to_room").distinct()),
+        })
+
+
+class SchoolEventViewSet(viewsets.ModelViewSet):
+    """CRUD /api/admin/events"""
+    queryset = SchoolEvent.objects.all().order_by("-event_date")
+    serializer_class = SchoolEventSerializer
+    permission_classes = [IsAdmin]
+
+    def get_queryset(self):
+        """GET /api/events/upcoming should return only upcoming events.
+
+        Spec assumption (from user): today bhi include karna hai.
+        """
+        qs = super().get_queryset()
+
+        # This endpoint is exposed as /api/events/upcoming (see urls).
+        # Detect it by path suffix to avoid changing routing structure.
+        if "events/upcoming" in self.request.path:
+            from django.utils import timezone
+
+            now = timezone.localtime()
+            # Include events occurring today as well.
+            qs = qs.filter(event_date__date__gte=now.date())
+            return qs.order_by("-event_date")
+
+        return qs
+
+    def perform_create(self, serializer):
+        # "automatically triggers alert notifications to students and
+        # parents" (spec, Page 11) -- TODO: dispatch Notification rows
+        # here once the notification-dispatch helper is built.
+        serializer.save(created_by_admin=self.request.user)
+    
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['event_date', 'venue']
+    search_fields = ['event_name', 'venue']
+    ordering_fields = ['event_date', 'created_at']
+    ordering = ['-event_date']
+    
+class EventParticipationViewSet(viewsets.ModelViewSet):
+    """Register participants per event, assign position/certificate."""
+    queryset = EventParticipation.objects.select_related("student__user", "event").all()
+    serializer_class = EventParticipationSerializer
+    permission_classes = [IsAdmin]
+
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['event', 'student', 'role', 'position']
+    search_fields = ['student__user__full_name', 'event__event_name']
+    ordering_fields = ['created_at', 'event__event_date']
+    ordering = ['-created_at']
+
+
+class CertificateViewSet(viewsets.ReadOnlyModelViewSet):
+    """GET /api/admin/certificates, GET /api/admin/certificates/{id}"""
+    queryset = Certificate.objects.select_related("student__user").all().order_by("-created_at")
+    serializer_class = CertificateSerializer
+    permission_classes = [IsAdmin]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields = ['cert_type', 'student']
+    search_fields = ['student__user__full_name', 'generated_text']
+    ordering_fields = ['created_at', 'cert_type']
+    ordering = ['-created_at']
+
+class CertificateGenerateView(APIView):
+    """
+    POST /api/admin/certificates/generate
+
+    Currently fills a plain template -- NOT yet AI-drafted. The spec's
+    "Certificates Bot" (AI-generated text) is part of the chatbot work
+    planned separately; swap the body of this method for a call to that
+    LLM service once it exists, keeping everything else (saving the
+    Certificate row) the same.
+    """
+    permission_classes = [IsAdmin]
+
+    TEMPLATES = {
+        "leaving": "This is to certify that {name} (Roll No. {roll}) has been a student of this institution and is granted leave to pursue further studies.",
+        "merit": "This certificate is proudly awarded to {name} (Roll No. {roll}) in recognition of outstanding academic merit.",
+        "clearance": "This is to certify that {name} (Roll No. {roll}) has cleared all dues and has no outstanding obligations to the institution.",
+        "appreciation": "This certificate of appreciation is presented to {name} (Roll No. {roll}) for their valuable contribution.",
+        "event": "This certificate is awarded to {name} (Roll No. {roll}) for their participation and achievement in the school event.",
+    }
+
+    def post(self, request):
+        serializer = CertificateGenerateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+
+        student = StudentProfile.objects.select_related("user").get(id=data["student_id"])
+        text = self.TEMPLATES[data["cert_type"]].format(
+            name=student.user.full_name, roll=student.roll_number or "N/A"
+        )
+        if data.get("custom_note"):
+            text += " " + data["custom_note"]
+
+        certificate = Certificate.objects.create(
+            student=student, cert_type=data["cert_type"],
+            generated_text=text, generated_by_admin=request.user,
+        )
+        return Response(CertificateSerializer(certificate).data, status=201)
+
+
+class CertificateDownloadView(APIView):
+    """
+    GET /api/admin/certificates/{id}/download
+    Returns the certificate text for the frontend to render as a PDF
+    (or wire up a PDF library here directly -- left as a TODO, since PDF
+    generation is a separate concern from the data layer).
+    """
+    permission_classes = [IsAdmin]
+
+    def get(self, request, id):
+        certificate = Certificate.objects.select_related("student__user").get(id=id)
+        return Response(CertificateSerializer(certificate).data)
+
+
+class AdminStatsView(APIView):
+    """
+    GET /api/admin/stats
+    Admin dashboard ke liye saare statistics.
+    """
+    permission_classes = [IsAuthenticated, IsAdmin]
+
+    def get(self, request):
+        # 1. Basic Counts
+        total_students = StudentProfile.objects.count()
+        total_teachers = TeacherProfile.objects.count()
+        total_parents = User.objects.filter(role__role_name="Parent", is_active=True).count()
+        pending_approvals = User.objects.filter(status="Pending").count()
+        open_complaints = Complaint.objects.filter(status="Open").count()
+
+        # 2. Average Attendance (Current Month)
+        today = datetime.now().date()
+        first_day = today.replace(day=1)
+        attendance_qs = Attendance.objects.filter(date__gte=first_day, date__lte=today)
+        total_attendance = attendance_qs.count()
+        present_count = attendance_qs.filter(status="Present").count()
+        avg_attendance = round((present_count / total_attendance * 100)) if total_attendance > 0 else 0
+
+        # 3. Monthly Revenue (Current Month)
+        monthly_fees = Fee.objects.filter(
+            month__year=today.year,
+            month__month=today.month,
+            status="Paid"
+        )
+        monthly_revenue = monthly_fees.aggregate(total=Sum('amount_paid'))['total'] or 0
+
+        # 4. Fee Collection Chart (Last 6 Months)
+        fee_chart = []
+        for i in range(6):
+            month_date = today.replace(day=1) - timedelta(days=30*i)
+            collected = Fee.objects.filter(
+                month__year=month_date.year,
+                month__month=month_date.month,
+                status="Paid"
+            ).aggregate(total=Sum('amount_paid'))['total'] or 0
+            fee_chart.append({
+                "month": month_date.strftime("%b"),
+                "collected": collected
+            })
+        fee_chart.reverse()
+
+        # 5. Attendance Trend (Last 7 Days)
+        attendance_trend = []
+        for i in range(7):
+            day = today - timedelta(days=i)
+            day_qs = Attendance.objects.filter(date=day)
+            total = day_qs.count()
+            present = day_qs.filter(status="Present").count()
+            percentage = round((present / total * 100)) if total > 0 else 0
+            attendance_trend.append({
+                "day": day.strftime("%a"),
+                "percentage": percentage
+            })
+        attendance_trend.reverse()
+
+        # 6. Response Return
+        return Response({
+            "total_students": total_students,
+            "total_teachers": total_teachers,
+            "total_parents": total_parents,
+            "pending_approvals": pending_approvals,
+            "monthly_revenue": monthly_revenue,
+            "avg_attendance": avg_attendance,
+            "open_complaints": open_complaints,
+            "fee_collection_chart": fee_chart,
+            "attendance_trend": attendance_trend,
+        })
